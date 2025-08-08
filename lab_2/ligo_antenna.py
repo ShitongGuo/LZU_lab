@@ -21,7 +21,7 @@ def f_cross(theta, phi):
 #     f_cross_value = np.tensordot(detector, e_cross, axes=2)
 #     return f_plus_value, f_cross_value
 
-def antenna_patterns_numerical(theta, phi):
+def antenna_patterns_numerical(theta, phi, psi=0):
     """
     Compute the antenna pattern functions f_plus and f_cross for given theta, phi arrays.
     Supports scalar inputs or meshgrid arrays of any shape.
@@ -54,4 +54,42 @@ def antenna_patterns_numerical(theta, phi):
     f_plus  = np.einsum('...ij,ij->...', e_plus, detector)
     f_cross = np.einsum('...ij,ij->...', e_cross, detector)
 
-    return f_plus, f_cross
+    # Apply the polarization angle psi
+    f_psi_plus = f_plus * np.cos(2 * psi) + f_cross * np.sin(2 * psi)
+    f_psi_cross = -f_plus * np.sin(2 * psi) + f_cross * np.cos(2 * psi)
+
+    return f_psi_plus, f_psi_cross
+
+def antenna_patterns(theta, phi, psi=0):
+    """
+    Compute the antenna pattern functions f_plus and f_cross for given theta, phi arrays.
+    Supports scalar inputs or meshgrid arrays of any shape.
+    """
+    f_plus_values = f_plus(theta, phi)
+    f_cross_values = f_cross(theta, phi)
+    
+    # Apply the polarization angle psi
+    f_psi_plus = f_plus_values * np.cos(2 * psi) + f_cross_values * np.sin(2 * psi)
+    f_psi_cross = -f_plus_values * np.sin(2 * psi) + f_cross_values * np.cos(2 * psi)
+    return f_psi_plus, f_psi_cross
+
+def ligo_strain(h_plus, h_cross, theta, phi, psi=0):
+    """
+    Calculate the LIGO strain from the antenna patterns and gravitational wave polarizations.
+    
+    Parameters:
+    theta : float or array-like
+        Polar angle in radians.
+    phi : float or array-like
+        Azimuthal angle in radians.
+    h_plus : float or array-like
+        Plus polarization of the gravitational wave.
+    h_cross : float or array-like
+        Cross polarization of the gravitational wave.
+    
+    Returns:
+    strain : float or array-like
+        The LIGO strain signal.
+    """
+    f_plus, f_cross = antenna_patterns(theta, phi, psi)
+    return f_plus * h_plus + f_cross * h_cross
