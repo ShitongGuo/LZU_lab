@@ -26,9 +26,12 @@ def rotate_by_psi(f_plus, f_cross, psi):
     f_psi_cross : float or np.ndarray
         Rotated antenna pattern function for cross polarization.
     """
-    f_psi_plus = f_plus * np.cos(2 * psi) + f_cross * np.sin(2 * psi)
-    f_psi_cross = -f_plus * np.sin(2 * psi) + f_cross * np.cos(2 * psi)
-    return f_psi_plus, f_psi_cross
+    psi = np.asarray(psi)
+    if psi.ndim == 0:
+        c2, s2 = np.cos(2*psi), np.sin(2*psi)
+    else:
+        c2, s2 = np.cos(2*psi)[None, None, :], np.sin(2*psi)[None, None, :]
+    return f_plus*c2 + f_cross*s2, -f_plus*s2 + f_cross*c2
 
 # def antenna_patterns_numerical(theta, phi):
 #     direction = np.array([np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), np.cos(theta)])
@@ -56,17 +59,23 @@ def antenna_patterns_numerical(theta, phi, psi=0, eps=1e-15):
     ], axis=-1)  # shape (..., 3)
     direction /= np.maximum(np.linalg.norm(direction, axis=-1, keepdims=True), eps)
 
-    # --- 安全的参考向量，避免在极点处叉乘为零 ---
-    ref_z = np.broadcast_to(np.array([0.0, 0.0, 1.0]), direction.shape)
-    ref_x = np.broadcast_to(np.array([1.0, 0.0, 0.0]), direction.shape)
-    use_x = (np.abs(direction[..., 2]) > 0.9)[..., None]  # 接近极点时用 x 轴当参考
-    ref = np.where(use_x, ref_x, ref_z)
+    # # --- 安全的参考向量，避免在极点处叉乘为零 ---
+    # ref_z = np.broadcast_to(np.array([0.0, 0.0, 1.0]), direction.shape)
+    # ref_x = np.broadcast_to(np.array([1.0, 0.0, 0.0]), direction.shape)
+    # use_x = (np.abs(direction[..., 2]) > 0.9)[..., None]  # 接近极点时用 x 轴当参考
+    # ref = np.where(use_x, ref_x, ref_z)
 
-    # Define an orthonormal wave basis (x_wave, y_wave) for each direction
-    x_wave = np.cross(ref, direction, axis=-1)
-    x_wave /= np.maximum(np.linalg.norm(x_wave, axis=-1, keepdims=True), eps)
-    y_wave = np.cross(direction, x_wave, axis=-1)
-    y_wave /= np.maximum(np.linalg.norm(y_wave, axis=-1, keepdims=True), eps)
+    # # Define an orthonormal wave basis (x_wave, y_wave) for each direction
+    # x_wave = np.cross(ref, direction, axis=-1)
+    # x_wave /= np.maximum(np.linalg.norm(x_wave, axis=-1, keepdims=True), eps)
+    # y_wave = np.cross(direction, x_wave, axis=-1)
+    # y_wave /= np.maximum(np.linalg.norm(y_wave, axis=-1, keepdims=True), eps)
+    x_wave = np.stack([np.cos(theta)*np.cos(phi),
+                    np.cos(theta)*np.sin(phi),
+                    -np.sin(theta)], axis=-1)        # ˆe_theta
+    y_wave = np.stack([-np.sin(phi),
+                    np.cos(phi),
+                    np.zeros_like(theta)], axis=-1)   # ˆe_phi
 
     # Construct polarization tensors e_plus and e_cross
     # e_plus[i,j] = x_wave[i] x_wave[j] - y_wave[i] y_wave[j]
